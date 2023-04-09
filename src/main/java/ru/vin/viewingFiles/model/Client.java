@@ -60,7 +60,7 @@ public class Client {
                     entryPath.append(file.getName());
                     filesWalk(entryPath.toString(), fileFilter);
                 } else {
-                    if (path.endsWith("/фотографии")) {
+                    if (path.endsWith("/С„РѕС‚РѕРіСЂР°С„РёРё")) {
                         entryPath.append(file.getName());
                         collectorFiles.add(entryPath.toString());
                     }
