@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 @Builder
 public class Client {
@@ -18,7 +19,13 @@ public class Client {
     private final String password;
     private FTPClient ftp;
 
-    private final List<String> collectorFiles = new ArrayList<>();
+
+    private final String startPath = "/";
+    private final FTPFileFilter fileFilter = (file) -> {
+        if (file.getName().startsWith(".") && file.isDirectory()) return false;
+        if (!file.getName().startsWith("GRP327_") && file.isFile()) return false;
+        return true;
+    };
 
     public void open() throws IOException {
         ftp = new FTPClient();
@@ -40,17 +47,34 @@ public class Client {
     }
 
     public List<String> getListFiles() throws IOException {
-        String startPath = "/";
-        FTPFileFilter fileFilter = (file) -> {
-            if (file.getName().startsWith(".") && file.isDirectory()) return false;
-            if (!file.getName().startsWith("GRP327_") && file.isFile()) return false;
-            return true;
+        List<String> collectorFiles = new ArrayList<>();
+        BiConsumer<StringBuilder, FTPFile> biConsumerReturnNamesFiles = (entryPath, file) -> {
+            if (entryPath.toString().endsWith("фотографии/")) {
+                entryPath.append(file.getName());
+                collectorFiles.add(entryPath.toString());
+            }
         };
-        filesWalk(startPath, fileFilter);
+        filesWalk(startPath, fileFilter, biConsumerReturnNamesFiles);
         return collectorFiles;
     }
 
-    private void filesWalk(String path, FTPFileFilter fileFilter) {
+    public String getDataFile(String nameFile) throws IOException {
+        StringBuilder dataFile = new StringBuilder();
+        BiConsumer<StringBuilder, FTPFile> biConsumerReturnDataFile = (entryPath, file) -> {
+            if (file.getName().equals(nameFile)) {
+                entryPath.append(file.getName());
+                try {
+                    dataFile.append(ftp.mlistFile(entryPath.toString()).toString());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
+        filesWalk(startPath, fileFilter, biConsumerReturnDataFile);
+        return dataFile.toString();
+    }
+
+    private void filesWalk(String path, FTPFileFilter fileFilter, BiConsumer<StringBuilder, FTPFile> biConsumer) {
         try {
             FTPFile[] ftpFiles = ftp.listFiles(path, fileFilter);
             for (FTPFile file : ftpFiles) {
@@ -58,12 +82,9 @@ public class Client {
                 if (!entryPath.toString().endsWith("/")) entryPath.append("/");
                 if (file.isDirectory()) {
                     entryPath.append(file.getName());
-                    filesWalk(entryPath.toString(), fileFilter);
+                    filesWalk(entryPath.toString(), fileFilter, biConsumer);
                 } else {
-                    if (path.endsWith("/фотографии")) {
-                        entryPath.append(file.getName());
-                        collectorFiles.add(entryPath.toString());
-                    }
+                    biConsumer.accept(entryPath, file);
                 }
             }
         } catch (IOException e) {

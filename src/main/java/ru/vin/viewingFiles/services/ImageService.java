@@ -38,4 +38,13 @@ public class ImageService {
     }
 
 
+    public String getDataPhotoClient(String nameFile) {
+        try {
+            String dataFile = client.getDataFile(nameFile);
+            client.close();
+            return dataFile;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
